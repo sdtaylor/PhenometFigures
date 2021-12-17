@@ -4,6 +4,10 @@ library(cowplot)
 #---------------------
 # timeseries figure of IBP phenocam gcc, soil moisture, and phenomet obs for BOE
 # faceted by year.
+# Data is compiled in:
+#    get_gcc_and_phenomet_data.R
+#    get_weather_and_soil_data.R
+
 #----------------------
 
 gcc = read_csv('data/phenocam/ibp_GR_1000_3day.csv', skip=24) %>%
