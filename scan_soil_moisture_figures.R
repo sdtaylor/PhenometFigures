@@ -1,6 +1,6 @@
 library(tidyverse)
 library(janitor)
-
+library(patchwork)
 
 #-----------------------------------------------
 # Read in yearly data files downloaded from https://wcc.sc.egov.usda.gov/nwcc/site?sitenum=2168
@@ -20,7 +20,7 @@ scan_data = purrr::map_df(all_scan_files, read_scan_datafile)
 
 #-----------------------------------------------
 # Pull soil moisture measurements from data. Note column names were changed using janitor::clean_names()
-# and pivoted to values into a new column.
+# and pivoted into a new column called 'measurement'.
 
 scan_soil_moisture = scan_data %>%
   filter(value != -99.9) %>%
@@ -33,7 +33,7 @@ scan_soil_moisture = scan_data %>%
   mutate(depth = depth * -1)
 
 # monthly average for all years.
-monthly_average = scan_soil_moisture %>%
+soil_moisture_monthly_average = scan_soil_moisture %>%
   mutate(year = lubridate::year(date),
          month = lubridate::month(date),
          month_date = lubridate::floor_date(date, unit='month') + lubridate::days(14)) %>% # Have a column for the 15th of the respective month for easier plotting
@@ -42,20 +42,69 @@ monthly_average = scan_soil_moisture %>%
   ungroup() %>%
   filter(n_days >= 20) # only have monthly averages with > 20 days of data
 
-# soil moisture as a heatmap/timeseries
-ggplot(monthly_average, aes(x=month_date, y=as.factor(depth), fill=avg_soil_moisture)) + 
-  geom_tile(height=0.8, width=30) + 
-  scale_fill_gradient2(low='red', mid='white', high='blue',midpoint=10) + 
-  scale_x_date(date_breaks = '6 month') + 
-  facet_wrap(~profile, scale='free') +
+#---------------------------------
+# scan precipitation
+scan_precip_monthly_average = scan_data %>%
+  filter(value != -99.9) %>%
+  filter(value >= 0) %>%   # some neg numbers besides -99.9 in the precip data.
+  filter(measurement=='prcp_d_1_in') %>%
+  mutate(year = lubridate::year(date),
+         month = lubridate::month(date),
+         month_date = lubridate::floor_date(date, unit='month') + lubridate::days(14)) %>%
+  group_by(year, month, month_date) %>%
+  summarise(monthly_precip = sum(value),
+            n_days = n()) %>%
+  ungroup()
+
+# calculate precip annomoly every month (unit still in inches)
+scan_precip_monthly_average = scan_precip_monthly_average %>%
+  group_by(month) %>%
+  mutate(mean_monthly_precip = mean(monthly_precip)) %>%     # the ~11 year per month average.
+  ungroup() %>%
+  mutate(monthly_annomoly = monthly_precip - mean_monthly_precip)
+
+precip_fig1 = ggplot(scan_precip_monthly_average, aes(x=month_date, y=monthly_precip)) +
+  geom_col(fill='darkblue') +
+  scale_x_date(date_breaks = '6 month', limits = as.Date(c('2009-01-01','2021-12-31'))) +
   theme_bw() + 
   theme(axis.text = element_text(color='black'),
-        axis.text.x = element_text(angle = -45, hjust=0))
+        axis.text.x = element_blank(),
+        legend.position = 'none') +
+  labs(y='monthly precip (in)', x='')
 
-# soil moisture as
-monthly_average %>%
-  mutate(depth = fct_rev(as_factor(depth))) %>% # make depth have the shallowest value on top of the facet
-ggplot(aes(x=month, y=avg_soil_moisture, color=year, group=year)) + 
-  geom_line() + 
-  scale_color_viridis_c(breaks=2010:2020) + 
-  facet_grid(depth~profile, labeller = label_both)
+precip_fig2 = ggplot(scan_precip_monthly_average, aes(x=month_date, y=monthly_annomoly)) +
+  geom_col(aes(fill=monthly_annomoly<0)) +
+  scale_fill_manual(values=c('blue','red')) + 
+  scale_x_date(date_breaks = '6 month', limits = as.Date(c('2009-01-01','2021-12-31'))) +
+  theme_bw() + 
+  theme(axis.text = element_text(color='black'),
+        axis.text.x = element_text(angle = -45, hjust=0),
+        legend.position = 'none') +
+  labs(y='monthly precip\nannomoly (in)', x='')
+
+#----------------------------------------------
+# soil moisture as a heatmap/timeseries
+
+get_profile_soil_moisture_figure = function(this_profile=1){
+  soil_moisture_monthly_average %>%
+    filter(profile==this_profile) %>%
+  ggplot(aes(x=month_date, y=as.factor(depth), fill=avg_soil_moisture)) + 
+    geom_tile(height=0.8, width=25) + 
+    #scale_fill_gradient2(low='red', mid='white', high='blue',midpoint=15) + 
+    scale_fill_viridis_c(option='D') + 
+    scale_x_date(date_breaks = '6 month', limits = as.Date(c('2009-01-01','2021-12-31'))) + 
+    facet_wrap(~profile, scale='free', ncol=1, strip.position = 'right', labeller = label_both) +
+    theme_bw() + 
+    theme(axis.text = element_text(color='black'),
+          axis.text.x = element_text(angle = -45, hjust=0)) +
+    labs(fill='soil moisture %', y='Depth', x='')
+}
+
+soil_moisture_fig1 = get_profile_soil_moisture_figure(1)
+soil_moisture_fig2 = get_profile_soil_moisture_figure(2)
+soil_moisture_fig3 = get_profile_soil_moisture_figure(3)
+
+
+# all figures together
+precip_fig1 + precip_fig2 + soil_moisture_fig1 + soil_moisture_fig2 + soil_moisture_fig3 + plot_layout(ncol=1)
+
