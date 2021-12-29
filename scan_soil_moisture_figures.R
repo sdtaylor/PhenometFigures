@@ -3,8 +3,8 @@ library(patchwork)
 
 #----------------------------------------------
 
-scan_spei_and_weather_data = read_csv('./scan/scan_spei_and_weather.csv')
-soil_moisture_monthly_average = read_csv('./scan/scan_monthly_soil_moisture.csv')
+scan_spei_and_weather_data = read_csv('./data/scan_spei_and_weather.csv')
+soil_moisture_monthly_average = read_csv('./data/scan_monthly_soil_moisture.csv')
 
 
 solstice_dates = tibble(solstice = as.Date(paste(2010:2021, '-06-21', sep = '')))

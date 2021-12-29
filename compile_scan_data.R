@@ -15,7 +15,7 @@ read_scan_datafile = function(datafile_path){
     pivot_longer(-c('site_id','date'), names_to = 'measurement', values_to='value')
 }
 
-all_scan_files = list.files('./scan/data/',pattern = '2168_ALL_YEAR*', full.names = T)
+all_scan_files = list.files('./data/scan_downloaded_data/',pattern = '2168_ALL_YEAR*', full.names = T)
 
 scan_data = purrr::map_df(all_scan_files, read_scan_datafile)
 
@@ -71,6 +71,9 @@ scan_monthly_precip = scan_data %>%
             n_days = n()) %>%
   ungroup()
 
+# inches to mm
+scan_monthly_precip$monthly_precip = scan_monthly_precip$monthly_precip * 25.4
+
 scan_monthly_temperature = scan_data %>%
   filter(value != -99.9) %>%
   filter(measurement %in% c('tmax_d_1_deg_c','tmin_d_1_deg_c')) %>%
@@ -101,5 +104,5 @@ scan_spei_and_weather_data$spei = as.vector(spei$fitted)
 
 
 #--------------------------------
-write_csv(soil_moisture_monthly_average, 'scan/scan_monthly_soil_moisture.csv')
-write_csv(scan_spei_and_weather_data, 'scan/scan_spei_and_weather.csv')
+write_csv(soil_moisture_monthly_average, './data/scan_monthly_soil_moisture.csv')
+write_csv(scan_spei_and_weather_data, './data/scan_spei_and_weather.csv')
