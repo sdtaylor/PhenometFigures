@@ -6,7 +6,7 @@ library(cowplot)
 # faceted by year.
 # Data is downloaded and compiled in:
 #    get_gcc_and_phenomet_data.R
-#    get_weather_and_soil_data.R
+#    get_ibp_weather_and_soil_data.R
 
 #----------------------
 

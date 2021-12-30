@@ -3,6 +3,10 @@ library(phenometR)
 library(broom)
 library(kableExtra)
 
+# Correlate onset dates with annual SPEI at the SCAN site, using the three species with individuals in both soil types at SCAN.
+# Data is downloaded and processed in:
+#    get_gcc_and_phenomet_data.R
+#    compile_scan_data.R
 
 # The average SPEI for the scan site using months Jan-June
 spi_data = read_csv('./data/scan_spei_and_weather.csv') %>%

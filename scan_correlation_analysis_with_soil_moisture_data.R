@@ -5,6 +5,10 @@ library(kableExtra)
 library(zoo)
 
 # Correlate onset dates with lagged change in soil moisture, using the three species with individuals in both soil types at SCAN.
+# Data is downloaded and processed in:
+#    get_gcc_and_phenomet_data.R
+#    compile_scan_data.R
+
 
 soil_moisture_monthly_average = read_csv('./data/scan_monthly_soil_moisture.csv')
 
