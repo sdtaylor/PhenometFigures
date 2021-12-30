@@ -148,7 +148,7 @@ ggplot(max_annual_count, aes(x=spei, y=max_count, color=soilprofile)) +
   geom_jitter(width=0.05, height=0) +
   geom_smooth(method='lm', se=T) + 
   facet_wrap(spp_code~str_wrap(paste(phenophase,phenophase_desc),30), scales='free') +
-  labs(x='Standardized Precip Index for Jan-June (negative = drier, positive = wetter)',
+  labs(x='SPEI for Jan-June (negative = drier, positive = wetter)',
        y='Maximum annual count') +
   theme_bw(12)
 
@@ -171,7 +171,7 @@ count_models %>%
                  height=0, size=1.5, position = position_dodge(width=0.25)) + 
   geom_vline(xintercept = 0) +
   facet_wrap(spp_code~., scales='free', ncol=3) +
-  labs(x='Slope of SPI - Maximum Count relationship', y='', 
+  labs(x='Slope of SPEI - Maximum Count relationship', y='', 
        title='Drought sensitivity for count phenophases') +
   theme_bw(15)
 
