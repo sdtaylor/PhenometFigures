@@ -2,15 +2,34 @@ library(tidyverse)
 library(phenometR)
 library(broom)
 library(kableExtra)
+library(zoo)
 
+# Correlate onset dates with lagged change in soil moisture, using the three species with individuals in both soil types at SCAN.
 
-# The average SPEI for the scan site using months Jan-June
-spi_data = read_csv('./data/scan_spei_and_weather.csv') %>%
-  filter(month %in% 1:6) %>%
-  group_by(year) %>%
-  summarise(spei = mean(spei)) %>%
-  ungroup()
+soil_moisture_monthly_average = read_csv('./data/scan_monthly_soil_moisture.csv')
 
+# Which soil depths to use, of -2, -4, -8, -20, -40
+depths_to_use = c(-2,-4)
+# How long of a lag to use. This is offset by 1 month. So for an onset in June with 2 months of lag, the % change
+# in moisture for April & May will be used. With 3 months of lag March,April, & May is used. 
+months_of_lag = 2
+
+# Calculate average % change in soil moisture of the prior two months.
+soil_moisture_monthly_average = soil_moisture_monthly_average %>%
+  filter(depth %in% depths_to_use) %>%
+  group_by(soilprofile, month_date) %>%
+  summarise(avg_soil_moisture_change = mean(avg_soil_moisture_change, na.rm=T)) %>%
+  ungroup() %>%
+  group_by(soilprofile) %>%
+  arrange(month_date) %>%
+  mutate(avg_soil_moisture_change_with_lag = zoo::rollmean(avg_soil_moisture_change, k = months_of_lag, align = 'right', fill=NA)) %>%
+  ungroup() %>%
+  mutate(month_date = month_date + lubridate::days(30)) %>% # offset the soil moisture by 1 month so there is a lag
+  mutate(month = lubridate::month(month_date),              # eg. For an onset in June, the soil moisture change will be the average for April & May
+         year  = lubridate::year(month_date)) %>%
+  select(soilprofile, year, month, avg_soil_moisture_change_with_lag)
+
+# Bring in phenomet observations.
 phenophase_info = get_phenophase_metadata() %>%
   select(phenophase, phenophase_desc)
 
@@ -57,7 +76,9 @@ onset_timing = event_phenophases %>%
             n_visits = n()) %>%
   ungroup() %>%
   filter(had_onset, n_visits>=40) %>%   # only individuals with at least 40 visits per year
-  left_join(spi_data, by='year')        # Bring in SPEI data for each year. 
+  mutate(onset_date = as.Date(paste(year,onset_doy,sep='-'),format='%Y-%j')) %>%
+  mutate(onset_month = lubridate::month(onset_date)) %>%
+  left_join(soil_moisture_monthly_average, by=c('year','onset_month'='month','soilprofile')) # Bring in soil moisture data for each year. 
 
 # Figure: onset doy over time for all phenophases
 ggplot(onset_timing, aes(x=year, y=onset_doy)) + 
@@ -67,35 +88,35 @@ ggplot(onset_timing, aes(x=year, y=onset_doy)) +
   facet_wrap(spp_code~str_wrap(paste(phenophase,phenophase_desc),25), scales='free') +
   theme_bw(12)
 
-# Figure: onset doy versus drought index
-ggplot(onset_timing,aes(x=spei, y=onset_doy, color=soilprofile)) + 
+# Figure: onset doy versus soil moisture change
+ggplot(onset_timing,aes(x=avg_soil_moisture_change_with_lag, y=onset_doy, color=soilprofile)) + 
   geom_jitter(aes(color=soilprofile),width=0.05, height=0, size=2) +
   geom_smooth(method='lm') +
   geom_vline(xintercept = 0) + 
   facet_wrap(spp_code~str_wrap(paste(phenophase,phenophase_desc),25), scales='free') +
-  labs(x='Average SPEI for Jan-June (negative = drier, positive = wetter)',
+  labs(x='Average % Soil moisture change for prior 2 months',
        y='Onset DOY') +
   theme_bw(12)
 
 
 #-----------------
-# Correlation analysis for present/absent phenophases
+# Correlation analysis for present/absent phenophases onset
 #
 # first fit model for each species/phenophase/profile
 # fitting models with group_by outlined here: https://broom.tidymodels.org/articles/broom_and_dplyr.html
 onset_models = onset_timing %>%
   group_by(spp_code, phenophase, phenophase_desc, soilprofile) %>%
   nest() %>%
-  mutate(model = map(data, ~lm(onset_doy~spei, data=.))) %>%
+  mutate(model = map(data, ~lm(onset_doy~avg_soil_moisture_change_with_lag, data=.))) %>%
   ungroup()
 
 #----------------------------------
-# Figure: slope coefficient for onset~spei
+# Figure: slope coefficient for onset~soil_moisture
 # extract the model coefficient using broom package and plot with CI.
 onset_models %>%
   mutate(t = map(model, broom::tidy)) %>%
   unnest(t) %>%
-  filter(term == 'spei') %>% 
+  filter(term == 'avg_soil_moisture_change_with_lag') %>% 
   ggplot(aes(x=estimate, y=fct_rev(str_wrap(paste(phenophase,phenophase_desc),25)), color=soilprofile)) + 
   geom_point(position = position_dodge(width=0.25), size=3) + 
   geom_errorbarh(aes(xmin = estimate - std.error*1.96, xmax = estimate + std.error*1.96),
@@ -103,80 +124,12 @@ onset_models %>%
   #scale_y_discrete(expand = c(0,0,0,0)) + 
   geom_vline(xintercept = 0) +
   facet_wrap(spp_code~., scales='free_y', ncol=3) +
-  labs(x='Slope of SPEI - Onset relationship',y='',
-       title='Drought sensitivity for phenophase onset') +
+  labs(x='Slope of Soil Moisture Change - Onset relationship',y='',
+       title='Soil moisture sensitivity for phenophase onset') +
   theme_bw(12)
 
 # A table of model statics, R^2, p-value, and AIC
 onset_models %>%
-  mutate(t = map(model, broom::glance)) %>%
-  unnest(t) %>%
-  select(spp_code, soilprofile, phenophase, phenophase_desc, r.squared, p.value, AIC) %>%
-  kable(format='simple')
-
-#-----------------
-# Correlation analysis for count phenophases
-#--------------------
-# counts like # flowers, # fruit
-count_phenophase_codes = c('DS_207','DS_208','DS_210','DS_211', 'GR_204','GR_205','GR_206','GR_207')
-
-count_phenophases = phenophase_data %>%
-  filter(spp_code %in% c('FLCE','PRGL','SPAI')) %>%
-  filter(phenophase %in% count_phenophase_codes) %>%
-  filter(status>=0)  %>%
-  filter(!(year %in% c(2016,2017))) # dropping these years for counts cause they are wayyyy overestimated. 
-
-# the maximum amount counted for each individual, phenophase, and calendar year.
-max_annual_count = count_phenophases %>%
-  group_by(plant_id,spp_code,phenophase, phenophase_desc, site_code, soilprofile, year) %>%
-  summarise(max_count = max(status),
-            n_visits = n()) %>%
-  ungroup() %>%
-  filter(n_visits>40) %>%
-  left_join(spi_data, by='year')
-
-# counts over time for all phenophases
-ggplot(max_annual_count, aes(x=year, y=max_count, color=soilprofile)) + 
-  geom_jitter(width=0.05, height=0) +
-  scale_x_continuous(breaks=seq(2010,2020,2)) + 
-  facet_wrap(spp_code~str_wrap(paste(phenophase,phenophase_desc),30), scales='free') +
-  labs(x='', y='Maximum annual count') +
-  theme_bw(12)
-
-# counts over time for all phenophases
-ggplot(max_annual_count, aes(x=spei, y=max_count, color=soilprofile)) + 
-  geom_jitter(width=0.05, height=0) +
-  geom_smooth(method='lm', se=T) + 
-  facet_wrap(spp_code~str_wrap(paste(phenophase,phenophase_desc),30), scales='free') +
-  labs(x='Standardized Precip Index for Jan-June (negative = drier, positive = wetter)',
-       y='Maximum annual count') +
-  theme_bw(12)
-
-# Linear models for max_count~spei for each species,phenophase,soil profile
-count_models = max_annual_count %>%
-  group_by(spp_code, phenophase, phenophase_desc, soilprofile) %>%
-  nest() %>%
-  mutate(model = map(data, ~lm(max_count~spei, data=.))) %>%
-  #unnest(t) %>%
-  ungroup()
-
-# extract the slope coefficient and CI and plot
-count_models %>%
-  mutate(t = map(model, broom::tidy)) %>%
-  unnest(t) %>%
-  filter(term == 'spei') %>% 
-  ggplot(aes(x=estimate, y=fct_rev(str_wrap(paste(phenophase,phenophase_desc),30)), color=soilprofile)) + 
-  geom_point(position = position_dodge(width=0.25), size=3) + 
-  geom_errorbarh(aes(xmin = estimate - std.error*1.96, xmax = estimate + std.error*1.96),
-                 height=0, size=1.5, position = position_dodge(width=0.25)) + 
-  geom_vline(xintercept = 0) +
-  facet_wrap(spp_code~., scales='free', ncol=3) +
-  labs(x='Slope of SPI - Maximum Count relationship', y='', 
-       title='Drought sensitivity for count phenophases') +
-  theme_bw(15)
-
-# A table of model statics, R^2, p-value, and AIC
-count_models %>%
   mutate(t = map(model, broom::glance)) %>%
   unnest(t) %>%
   select(spp_code, soilprofile, phenophase, phenophase_desc, r.squared, p.value, AIC) %>%
