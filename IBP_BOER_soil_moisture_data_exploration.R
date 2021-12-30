@@ -22,7 +22,7 @@ start_date = min(gcc$date)
 end_date   = max(gcc$date)
 
 # Read the  precip data and calculate the total for each week. 
-precip = read_csv('data/weather_data.csv') %>%
+precip = read_csv('data/ibp_weather_data.csv') %>%
   filter(date >= start_date, date<=end_date) %>%
   mutate(week =  lubridate::week(date) * 7,   # need a date for plotting, so label each as the last of the 7 days. These 7 day periods do *not* align with sun-sat, for that use lubridate::epiweek
          year  = lubridate::year(date)) %>%
@@ -33,7 +33,7 @@ precip = read_csv('data/weather_data.csv') %>%
   mutate(date = as.Date(paste(year,week,sep='-'), format='%Y-%j'))
 
 # Read soil moisture data and get the average among all three depths.
-soil_moisture = read_csv('data/soil_data.csv') %>%
+soil_moisture = read_csv('data/ibp_soil_data.csv') %>%
   group_by(site_code, year, date, doy) %>%
   summarise(soil_moisture = mean(soil_moisture), n=n()) %>%
   ungroup() %>%
