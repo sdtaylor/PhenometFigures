@@ -2,6 +2,13 @@ library(tidyverse)
 library(janitor)
 library(SPEI)
 
+soil_profile_info = tribble(
+  ~profile, ~soilprofile,
+  1,        'DUNE',
+  2,        'GRASS',
+  3,        'BARE'
+)
+
 #-----------------------------------------------
 # Read in yearly data files downloaded from https://wcc.sc.egov.usda.gov/nwcc/site?sitenum=2168
 # and make two files for soil moisture and air temp/precip/spei
@@ -31,14 +38,16 @@ scan_soil_moisture = scan_data %>%
            convert=TRUE,
            sep='_',) %>%  
   select(-starts_with('drop')) %>%
-  mutate(depth = depth * -1)
+  mutate(depth = depth * -1) %>%
+  left_join(soil_profile_info, by='profile') %>% # replace profile (1,2,3) with soilprofile (DUNE,GRASS,BARE)
+  select(-profile)
 
 # monthly average for all years.
 soil_moisture_monthly_average = scan_soil_moisture %>%
   mutate(year = lubridate::year(date),
          month = lubridate::month(date),
          month_date = lubridate::floor_date(date, unit='month') + lubridate::days(14)) %>% # Have a column for the 15th of the respective month for easier plotting
-  group_by(profile, depth, year, month, month_date) %>%
+  group_by(soilprofile, depth, year, month, month_date) %>%
   summarise(avg_soil_moisture = mean(value), n_days=n()) %>%
   ungroup() %>%
   filter(n_days >= 20) # only have monthly averages with > 20 days of data
@@ -48,11 +57,10 @@ all_months = tibble(month_date = seq(as.Date('2010-01-15'), as.Date('2021-12-15'
 # calculate change in % soil moisture
 soil_moisture_monthly_average = soil_moisture_monthly_average %>%
   full_join(all_months, by=c('month_date')) %>%    # A bit cumbersome. These 3 lines introduce NA's where
-  complete(profile, depth, month_date) %>%         # there is missing values for each profile and depth
+  complete(soilprofile, depth, month_date) %>%         # there is missing values for each profile and depth
   mutate(year = lubridate::year(month_date), month=lubridate::month(month_date)) %>%
-  filter((!is.na(profile)) & (!is.na(depth))) %>%
-  group_by(profile, depth) %>%          # change in soil % for each profile/depth
-
+  filter((!is.na(soilprofile)) & (!is.na(depth))) %>%
+  group_by(soilprofile, depth) %>%          # change in soil % for each profile/depth
   arrange(month_date) %>%
   mutate(avg_soil_moisture_change = avg_soil_moisture - lag(avg_soil_moisture)) %>%
   ungroup()

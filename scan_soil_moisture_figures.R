@@ -26,23 +26,23 @@ spei_fig = ggplot(scan_spei_and_weather_data, aes(x=month_date, y=spei)) +
 
 get_profile_soil_moisture_figure = function(this_profile=1){
   soil_moisture_monthly_average %>%
-    filter(profile==this_profile) %>%
+    filter(soilprofile==this_profile) %>%
   ggplot(aes(x=month_date, y=as.factor(depth), fill=avg_soil_moisture_change)) + 
     geom_tile(height=0.8, width=25) + 
     geom_vline(data=solstice_dates, aes(xintercept=solstice), color='gold') + 
     scale_fill_gradient2(low='firebrick', mid='lightyellow', high='darkgreen',limits=c(-10,10),midpoint=0, na.value='white') + 
     #scale_fill_viridis_c(option='D', na.value='white') + 
     scale_x_date(date_breaks = '6 month', limits = as.Date(c('2009-01-01','2021-12-31'))) + 
-    facet_wrap(~profile, scale='free', ncol=1, strip.position = 'right', labeller = label_both) +
+    facet_wrap(~soilprofile, scale='free', ncol=1, strip.position = 'right', labeller = label_both) +
     theme_bw() + 
     theme(axis.text = element_text(color='black'),
           axis.text.x = element_text(angle = -45, hjust=0)) +
     labs(fill='Monthly change in\nsoil moisture %', y='Depth', x='')
 }
 
-soil_moisture_fig1 = get_profile_soil_moisture_figure(1)
-soil_moisture_fig2 = get_profile_soil_moisture_figure(2)
-soil_moisture_fig3 = get_profile_soil_moisture_figure(3)
+soil_moisture_fig1 = get_profile_soil_moisture_figure('DUNE')
+soil_moisture_fig2 = get_profile_soil_moisture_figure('GRASS')
+soil_moisture_fig3 = get_profile_soil_moisture_figure('BARE')
 
 
 # all figures together
@@ -61,7 +61,7 @@ all_data = soil_moisture_monthly_average %>%
 main_figure2 = ggplot(all_data, aes(x=spei, y=avg_soil_moisture_change)) + 
   geom_point() +
   geom_hline(yintercept = 0, color='red') + 
-  facet_grid(depth~profile, label=label_both) +
+  facet_grid(depth~soilprofile, label=label_both) +
   theme_bw(15) +
   labs(x='Monthly SPEI', y='Monthly change in soil moisture %')
 
