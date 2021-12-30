@@ -66,7 +66,6 @@ onset_timing = event_phenophases %>%
 # Figure: onset doy over time for all phenophases
 ggplot(onset_timing, aes(x=year, y=onset_doy)) + 
   geom_jitter(aes(color=soilprofile),width=0.05, height=0, size=2) +
-  #geom_smooth(aes(color=soilprofile), method='lm', se=T) + 
   scale_x_continuous(breaks=seq(2010,2020,2)) + 
   facet_wrap(spp_code~str_wrap(paste(phenophase,phenophase_desc),25), scales='free') +
   theme_bw(12)
@@ -104,7 +103,6 @@ onset_models %>%
   geom_point(position = position_dodge(width=0.25), size=3) + 
   geom_errorbarh(aes(xmin = estimate - std.error*1.96, xmax = estimate + std.error*1.96),
                  height=0, size=1.5, position = position_dodge(width=0.25)) + 
-  #scale_y_discrete(expand = c(0,0,0,0)) + 
   geom_vline(xintercept = 0) +
   facet_wrap(spp_code~., scales='free_y', ncol=3) +
   labs(x='Slope of SPEI - Onset relationship',y='',
