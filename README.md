@@ -16,3 +16,7 @@
 `scan_correlation_analysis_with_soil_moisture_data.R` - this does the correlation analysis using onset dates and % change in soil moisture for the different soil profiles at the SCAN site. 
 
 `download_and_plot_NMSU_SPI.R` - this downloads SPI data for the NMSU weather station and makes a timeseries plot from the year 2000 to present. 
+
+`visualize_consecutive_phenophase_correlations.R` - A three panel figure which compares, for every individual and year, the onset day of flower heads vs open flowers, open flowers vs unripe fruit, and unripe fruit vs ripe fruit. All for perennial grasses.
+
+`visualize_grass_flowering_duration.R` - A three panel figure which compares using box plots the duration, onset, and end for perennial grasses flowering.
